@@ -101,6 +101,8 @@ typing-inspection==0.4.5
     #   fastapi
     #   pydantic
     #   pydantic-settings
+tzdata==2026.6
+    # via xiongmao-chat (pyproject.toml)
 urllib3==2.8.0
     # via requests
 uvicorn==0.54.0

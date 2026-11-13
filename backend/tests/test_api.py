@@ -143,6 +143,22 @@ def test_request_validation(api, method, path, body):
     assert response.json()["request_id"] == response.headers["X-Request-ID"]
 
 
+@pytest.mark.parametrize("zone", ["UTC", "Asia/Seoul", "America/Los_Angeles"])
+def test_usage_accepts_real_time_zones(api, zone):
+    # The browser sends its own IANA zone; the server must know them all (tzdata is a dependency).
+    client, _, _ = api
+    for route in ("summary", "daily", "models", "requests"):
+        response = request(client, "GET", f"/usage/{route}?from=2026-11-01&to=2026-11-12&timezone={zone}")
+        assert response.status_code == 200, (route, zone, response.json())
+
+
+def test_tzdata_is_a_direct_dependency():
+    # Slim Linux images have no system zone database; without the package every zone is "invalid".
+    from importlib.metadata import requires
+
+    assert any(r.startswith("tzdata") for r in requires("xiongmao-chat"))
+
+
 def test_cors_preflight(api):
     client, _, _ = api
     for origin, expected in [("http://localhost:5173", 200), ("https://untrusted.example", 400)]:
