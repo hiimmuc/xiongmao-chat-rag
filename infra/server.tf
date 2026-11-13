@@ -96,7 +96,9 @@ resource "aws_instance" "server" {
   }
   metadata_options {
     http_tokens                 = "required"
-    http_put_response_hop_limit = 2 # containers can reach the instance role
+    # 1 hop: only the host (deploy.sh, the AWS CLI) can use the instance role. The containers never
+    # call AWS, so a compromised container cannot read the secrets in Parameter Store.
+    http_put_response_hop_limit = 1
   }
   root_block_device {
     volume_type = "gp3"

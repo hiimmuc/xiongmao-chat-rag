@@ -121,6 +121,7 @@ The first-boot script (`infra/user_data.sh.tftpl`) installs Docker, adds 2 GiB s
 | Cloud credentials | No AWS keys in GitHub. Actions assumes the role `xiongmao-github-deploy` through OpenID Connect, and only pushes to `main` of `hiimmuc/xiongmao-chat-rag` may. The role can push one ECR repository, write two buckets, invalidate one distribution, and run commands only on the instance tagged `xiongmao-api`. |
 | Server access | No SSH and no port 22. Deploys use SSM Run Command, and admin shells use Session Manager. Both are authorized through IAM. |
 | Secrets | Kept out of Git and Terraform state. You add `GEMINI_API_KEY`, `KEY_ENCRYPTION_KEY` and `JWT_SECRET` as SecureString parameters. At deploy time the server reads them into a root-only `.env`. |
+| Server role | Only the host can use the instance's AWS role (metadata hop limit 1, tokens required). The containers never call AWS, so a compromised container cannot read Parameter Store. |
 | Users' own API keys | Encrypted with Fernet (`KEY_ENCRYPTION_KEY`) before they are stored. |
 | Production mode | `APP_ENV=production`: the API refuses to start without a strong `JWT_SECRET`, cookies are `Secure`, the interactive API docs are off, and CORS allows only `https://xiong-mao.net`. |
 | Release order | Backend first, then frontend, so a new web app never calls an API that lacks its endpoints. The worker stops before migrations, so two workers never overlap. |
