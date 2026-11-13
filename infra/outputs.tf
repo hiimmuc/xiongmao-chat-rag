@@ -1,5 +1,5 @@
 output "acm_validation_record" {
-  description = "Step 1: add this CNAME in Cloudflare (DNS only) so the frontend certificate can be issued."
+  description = "Step 2 of docs/deploy-aws.md: add this CNAME in Cloudflare (DNS only) so the frontend certificate can be issued."
   value = [for o in aws_acm_certificate.frontend.domain_validation_options : {
     type    = o.resource_record_type
     name    = o.resource_record_name
@@ -8,7 +8,7 @@ output "acm_validation_record" {
 }
 
 output "cloudflare_dns_records" {
-  description = "Step 2: add these in Cloudflare. Proxy status must be DNS only (grey cloud)."
+  description = "Step 4 of docs/deploy-aws.md: add these in Cloudflare. Proxy status must be DNS only (grey cloud)."
   value = [
     { type = "CNAME", name = var.domain, content = aws_cloudfront_distribution.frontend.domain_name },
     { type = "A", name = var.api_domain, content = aws_eip.server.public_ip },
@@ -16,7 +16,7 @@ output "cloudflare_dns_records" {
 }
 
 output "github_variables" {
-  description = "Step 4: GitHub repository variables (Settings > Secrets and variables > Actions > Variables). None are secret."
+  description = "Step 6 of docs/deploy-aws.md: GitHub repository variables (Settings > Secrets and variables > Actions > Variables). None are secret."
   value = {
     AWS_REGION                 = var.region
     AWS_DEPLOY_ROLE_ARN        = aws_iam_role.deploy.arn
@@ -30,7 +30,7 @@ output "github_variables" {
 }
 
 output "parameter_path" {
-  description = "Step 3: put the secrets under this SSM path."
+  description = "Step 5 of docs/deploy-aws.md: put the secrets under this SSM path."
   value       = local.parameter_path
 }
 

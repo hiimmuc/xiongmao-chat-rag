@@ -13,7 +13,7 @@ resource "aws_s3_bucket_public_access_block" "frontend" {
   restrict_public_buckets = true
 }
 
-# Certificate for xiong-mao.net. Validated by a CNAME you add in Cloudflare (see README).
+# Certificate for xiong-mao.net. Validated by a CNAME you add in Cloudflare (see docs/deploy-aws.md).
 resource "aws_acm_certificate" "frontend" {
   provider          = aws.us_east_1
   domain_name       = var.domain
