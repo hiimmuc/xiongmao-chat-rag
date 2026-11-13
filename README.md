@@ -2,7 +2,7 @@
 
 Private AI chat over your own documents. Upload PDFs, text or Markdown files into a project, ask questions, and get streamed answers from Gemini that cite the file, page and passage they come from.
 
-| | |
+| **Component** | **Technology Stack** |
 | --- | --- |
 | **Frontend** | React + TypeScript (Vite) |
 | **Backend** | FastAPI API + one background worker, Python 3.12 |
@@ -87,9 +87,9 @@ cp .env.example .env      # then put your GEMINI_API_KEY in .env
 
 | Process | Address |
 | --- | --- |
-| API | http://127.0.0.1:8000 (interactive docs at `/api/docs`, local only) |
+| API | <http://127.0.0.1:8000> (interactive docs at `/api/docs`, local only) |
 | Worker | none (indexes uploads in the background) |
-| Web app | **http://localhost:5173** |
+| Web app | **<http://localhost:5173>** |
 
 Create an account on the sign-in page. Without `--paid-calls` the app runs, but no model is offered. To start over with an empty database, stop everything and delete `.local-postgres/`.
 
