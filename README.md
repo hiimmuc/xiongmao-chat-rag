@@ -193,7 +193,7 @@ Dockerfile          The API and worker image (one image, two commands)
 | Projects | Each project has its own documents, chats and search index. Nothing crosses projects. |
 | Free chats | Chats outside any project; they use only documents uploaded into that chat. |
 | Documents | Text PDF, TXT and Markdown up to 10 MiB and 100 pages, by button or drag and drop. Status, retry, rename, download, delete. Citations show file, page and snippet. |
-| Models | The picker lists the chat models each provider offers for the key in use. Settings, Models narrows it to a shortlist. |
+| Models | The picker lists the chat models each provider offers for the key in use. Settings, Models selects which appear (select all or deselect all per provider family). New accounts start with GPT-4o, GPT-4.1, GPT-4.1 mini, Gemini 3.1 Flash-Lite, Gemini 3.5 Flash-Lite and Gemini 3.6 Flash. |
 | Usage | Requests, tokens and estimated cost by day and by model, in your time zone. Unknown values stay unknown. |
 | Settings | Light/dark/system mode, color themes, fonts, response styles, model shortlist, personal API keys. |
 | Accounts | Email and password sign-up and sign-in, password change (signs out other browsers), profile, account deletion confirmed by password. |

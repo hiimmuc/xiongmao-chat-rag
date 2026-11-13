@@ -79,3 +79,4 @@ Migrations are in `backend/migrations/versions/`. They run automatically on ever
 | `0003` | Free chats outside projects |
 | `0004` | Personal API keys |
 | `0005` | Email and password sign-in |
+| `0006` | Model picker defaults (an empty saved list now means none) |

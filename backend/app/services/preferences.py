@@ -24,7 +24,8 @@ def update_preferences(db, user, changes):
     """Merge a partial update into the stored preferences and return the result."""
     db.refresh(user, with_for_update=True)  # concurrent patches merge instead of overwriting each other
     merged = preferences_for(user).model_dump()
-    if unknown := set(changes.get("models", [])) - set(catalog_for(db, user.id)):
+    # Ids already saved stay valid even if the catalog no longer lists them (a default whose provider has no key).
+    if unknown := set(changes.get("models", [])) - set(catalog_for(db, user.id)) - set(merged["models"]):
         raise HTTPException(422, f"Unknown model: {sorted(unknown)[0]}")
     merged["notifications"].update(changes.pop("notifications", {}))
     merged.update(changes)
