@@ -1,0 +1,76 @@
+# Production stack on the EC2 server. deploy.sh writes .env next to this file.
+# Persistent data lives on the separate EBS data disk mounted at /data.
+name: xiongmao
+
+x-app: &app
+  image: ${API_IMAGE}
+  env_file: .env
+  restart: unless-stopped
+  environment:
+    STORAGE_DIR: /data/storage
+  volumes:
+    - /data/storage:/data/storage
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: chatbot
+      POSTGRES_USER: chatbot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    # Sized for a 1 GiB server.
+    command: ["postgres", "-c", "shared_buffers=128MB", "-c", "max_connections=40"]
+    volumes:
+      - /data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatbot -d chatbot"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # Applies database migrations, then exits. The API and worker start only if it succeeds.
+  migrate:
+    <<: *app
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db: { condition: service_healthy }
+
+  api:
+    <<: *app
+    # Trust X-Forwarded-For from Caddy (the only way in), so the API sees real client addresses.
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  # Exactly one worker: document indexing and deletion clean-up.
+  worker:
+    <<: *app
+    command: ["python", "-m", "worker.main"]
+    stop_grace_period: 2m
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  # HTTPS for api.xiong-mao.net with an automatic Let's Encrypt certificate.
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      API_DOMAIN: ${API_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - /data/caddy:/data
+    depends_on: [api]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }

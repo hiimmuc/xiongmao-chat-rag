@@ -1,0 +1,17 @@
+# Caddy gets and renews the Let's Encrypt certificate for API_DOMAIN by itself.
+# The Cloudflare record for the API must be "DNS only" (grey cloud) for this to work.
+{$API_DOMAIN} {
+	# Uploads are at most 10 MiB (MAX_UPLOAD_BYTES); reject anything far larger before it reaches the API.
+	request_body {
+		max_size 12MB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+	reverse_proxy api:8000 {
+		# Send streamed answers (Server-Sent Events) to the browser immediately.
+		flush_interval -1
+	}
+}

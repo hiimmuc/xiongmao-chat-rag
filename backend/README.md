@@ -1,0 +1,81 @@
+# Backend
+
+FastAPI API plus one background worker, sharing the same code and PostgreSQL database.
+
+```
+backend/
+├── app/
+│   ├── main.py              App setup: logging, CORS, security headers, error format, mounts /api/v1
+│   ├── core/                Plumbing every layer uses (no business rules)
+│   │   ├── config.py        Settings from environment / .env, model catalog
+│   │   ├── database.py      Engine, Session, get_db, declarative Base
+│   │   ├── security.py      Password hashing, JWT access tokens, current_user dependency
+│   │   └── storage.py       Uploaded files and deletion journal (on disk, STORAGE_DIR)
+│   ├── models/              Database tables (SQLAlchemy), one file per area
+│   │   ├── user.py          User, UserKey, LoginSession (refresh-token sessions)
+│   │   ├── project.py       Project
+│   │   ├── chat.py          Conversation, Message, Generation
+│   │   ├── document.py      Document, Chunk (vector)
+│   │   ├── usage.py         Usage (cost ledger)
+│   │   └── jobs.py          Job (worker queue), Deletion
+│   ├── schemas/             Request bodies (Pydantic), one file per area
+│   ├── api/                 HTTP routes, one file per resource. Thin: validate, call a service, return JSON
+│   │   ├── auth.py          /auth (sign up, sign in, refresh, sign out, password)
+│   │   ├── account.py       /me              preferences.py  /me/preferences    keys.py  /me/keys
+│   │   ├── catalog.py       /models          projects.py     /projects          health.py /health
+│   │   ├── conversations.py /conversations   generations.py  answers (SSE)      usage.py /usage
+│   │   ├── documents.py     /documents       deletions.py    /deletions/{id}
+│   └── services/            Business logic. No routes; callable from the API, the worker and tests
+│       ├── projects.py, conversations.py, branching.py, documents.py, preferences.py, api_keys.py
+│       ├── auth.py          Accounts and sign-in sessions (refresh tokens, sign-in limits)
+│       ├── generations.py   Admission: limits, idempotency, which documents an answer may use
+│       ├── chat_stream.py   Runs one answer and streams it to the browser
+│       ├── prompts.py       System prompt and chat history sent to the model
+│       ├── providers.py     Gemini / OpenAI calls: streamed chat and embeddings
+│       ├── ingestion.py     File -> text -> chunks (worker)
+│       ├── retrieval.py     Question -> most relevant chunks (pgvector)
+│       ├── usage.py         Usage ledger and cost estimates (rates.json holds prices)
+│       ├── deletions.py     Deletion requests (journal first)
+│       └── deletion_rules.py What deleting each resource type hides, stops and removes
+├── worker/main.py           Background loop: ingest documents, purge deleted data
+├── migrations/              Alembic migrations (run automatically on deploy and local start)
+└── tests/                   pytest; database tests need DATABASE_URL
+```
+
+## How a request flows
+
+```
+browser -> api/<resource>.py -> services/<area>.py -> models/ (database)
+                 |                      |
+           schemas/ (input)      providers.py (Gemini / OpenAI)
+```
+
+The rules that keep the layers easy to follow:
+
+- `api/` only talks HTTP: path and query parameters, status codes, the JSON shape (`*_json` helpers).
+- `services/` holds the logic. It may raise `HTTPException` for "not found" and "not allowed" cases, but never defines routes.
+- `models/` and `schemas/` only describe data.
+- `core/` knows nothing about chats or documents.
+- Code that runs outside a request opens its own session with `database.Session()`. Import the module (`from app.core import database`), not the name, so tests can swap the database in one place.
+
+## Adding a feature
+
+For example, "tags on conversations":
+
+1. **Table:** add the column or table in `models/chat.py`, then write a migration in `migrations/versions/` (`0006_...py`).
+2. **Request body:** add it in `schemas/chat.py` and export it from `schemas/__init__.py`.
+3. **Logic:** add it in `services/conversations.py`, or create `services/tags.py` if it is a new area.
+4. **Route:** add it in `api/conversations.py`. For a new resource, create `api/tags.py` and add it to the list in `api/__init__.py`.
+5. **Test:** add one in `tests/`.
+
+## Run and test
+
+See the main [README](../README.md#run-locally-on-windows). In short, from the repository root on Windows:
+
+```powershell
+.\scripts\start-local.ps1 -PaidCalls      # database, API, worker, web app
+cd backend
+$env:DATABASE_URL = (..\backend\.venv\Scripts\python ..\scripts\local_db.py start) -replace '/chatbot$', '/chatbot_test'
+.venv\Scripts\python -m pytest
+.venv\Scripts\ruff check app worker migrations tests
+```

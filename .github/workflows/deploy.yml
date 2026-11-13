@@ -1,0 +1,105 @@
+# Push to main: run the tests, ship the backend to EC2, then publish the frontend to S3/CloudFront.
+# AWS access uses GitHub OpenID Connect; there are no AWS keys stored in GitHub.
+# All values come from repository variables printed by `terraform output github_variables`.
+name: Deploy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  backend:
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      IMAGE: ${{ vars.ECR_REPOSITORY_URL }}:${{ github.sha }}
+      DEPLOY_BUCKET: ${{ vars.DEPLOY_BUCKET }}
+      SERVER_NAME: ${{ vars.SERVER_NAME }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      # The server is arm64 (Graviton), so build an arm64 image.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          tags: ${{ env.IMAGE }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Upload server files
+        run: aws s3 sync deploy/ "s3://$DEPLOY_BUCKET/" --delete
+
+      - name: Run deploy.sh on the server through SSM
+        run: |
+          command="/snap/bin/aws s3 sync s3://$DEPLOY_BUCKET/ /opt/xiongmao/ && bash /opt/xiongmao/deploy.sh $IMAGE"
+          id=$(aws ssm send-command \
+            --document-name AWS-RunShellScript \
+            --targets "Key=tag:Name,Values=$SERVER_NAME" \
+            --comment "deploy ${GITHUB_SHA::7}" \
+            --parameters "$(jq -n --arg c "$command" '{commands: [$c], executionTimeout: ["900"]}')" \
+            --query Command.CommandId --output text)
+          echo "SSM command $id"
+          status=None
+          for _ in $(seq 1 90); do
+            sleep 10
+            status=$(aws ssm list-command-invocations --command-id "$id" \
+              --query 'CommandInvocations[0].Status' --output text)
+            case "$status" in Pending|InProgress|Delayed|None) continue ;; *) break ;; esac
+          done
+          aws ssm list-command-invocations --command-id "$id" --details \
+            --query 'CommandInvocations[0].CommandPlugins[0].Output' --output text
+          echo "Status: $status"
+          test "$status" = Success
+
+  frontend:
+    needs: backend
+    runs-on: ubuntu-latest
+    env:
+      BUCKET: ${{ vars.FRONTEND_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - name: Build
+        working-directory: frontend
+        run: |
+          # Without it the app would call port 8000 on the CloudFront host and nothing would work.
+          test -n "$VITE_API_URL" || { echo "Set the VITE_API_URL repository variable"; exit 1; }
+          npm run build
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Upload to S3 and refresh CloudFront
+        working-directory: frontend
+        run: |
+          # Hashed files never change, so browsers may cache them for a year; everything else is revalidated.
+          aws s3 sync dist/assets "s3://$BUCKET/assets" --cache-control "public,max-age=31536000,immutable"
+          aws s3 sync dist "s3://$BUCKET" --delete --exclude "assets/*" --cache-control "no-cache"
+          aws cloudfront create-invalidation --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" --paths "/*"

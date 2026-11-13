@@ -1,0 +1,44 @@
+# Secrets and local settings (the *.example files are templates and are committed)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Terraform: state and plans can contain secrets; the lock file is committed
+.terraform/
+*.tfstate*
+*.tfplan
+tfplan
+*.tfvars
+!terraform.tfvars.example
+
+# Python
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Frontend
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+test-results/
+playwright-report/
+
+# Local development data (scripts/start-local.ps1)
+.local-postgres/
+.local-storage/
+.local-run/
+*.log
+
+# Editors and operating systems
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store

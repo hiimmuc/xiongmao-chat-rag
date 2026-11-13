@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# First boot of the API server (Ubuntu 24.04, arm64). Installs Docker and the AWS CLI,
+# adds swap, mounts the data disk at /data and records settings for deploy.sh.
+# The app itself is started later by the GitHub Actions deploy (deploy/deploy.sh).
+set -euxo pipefail
+
+# Retry downloads: the Elastic IP is attached during boot, which can drop a connection.
+retry() { for _ in 1 2 3 4 5 6; do "$@" && return 0; sleep 15; done; return 1; }
+retry apt-get update
+retry env DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io docker-compose-v2 openssl
+systemctl enable --now docker
+retry snap install aws-cli --classic
+
+# 2 GiB swap: the server has only 1 GiB of memory.
+if [ ! -f /swapfile ]; then
+  fallocate -l 2G /swapfile
+  chmod 600 /swapfile
+  mkswap /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+swapon -a
+
+# Data disk (database, uploads, certificates). Formatted only the first time, so it survives
+# replacing the server.
+DEVICE=/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_${data_volume_serial}
+for _ in $(seq 1 60); do [ -e "$DEVICE" ] && break; sleep 5; done
+blkid "$DEVICE" || mkfs.ext4 -L xiongmao-data "$DEVICE"
+DISK_UUID=$(blkid -s UUID -o value "$DEVICE")
+mkdir -p /data
+grep -q "$DISK_UUID" /etc/fstab || echo "UUID=$DISK_UUID /data ext4 defaults,nofail 0 2" >> /etc/fstab
+mount -a
+
+mkdir -p /opt/xiongmao
+cat > /etc/xiongmao.env <<EOF
+AWS_REGION=${region}
+DEPLOY_BUCKET=${deploy_bucket}
+ECR_REGISTRY=${ecr_registry}
+API_DOMAIN=${api_domain}
+PARAMETER_PATH=${parameter_path}
+EOF

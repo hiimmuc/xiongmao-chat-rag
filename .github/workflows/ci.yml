@@ -1,0 +1,73 @@
+# Tests for every pull request and every push to a non-deploy branch.
+# deploy.yml runs this same workflow before deploying main.
+name: CI
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: chatbot
+          POSTGRES_PASSWORD: test-only
+          POSTGRES_DB: chatbot_test
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U chatbot -d chatbot_test"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgresql+psycopg://chatbot:test-only@localhost:5432/chatbot_test
+      APP_ENV: test
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.lock && pip install -e '.[test]'
+      - run: ruff check app worker migrations tests
+      - run: alembic upgrade head
+      # Tests build tables from the models, so this catches a model change with no migration.
+      - run: alembic check
+      - run: pytest
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install chromium --with-deps
+      - run: npm run test:e2e
+
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.0
+      - run: terraform fmt -check
+      - run: terraform init -backend=false
+      - run: terraform validate

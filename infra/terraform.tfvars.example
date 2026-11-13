@@ -1,0 +1,15 @@
+# Copy to terraform.tfvars (git-ignored) and change only what differs from the defaults in variables.tf.
+
+# region                      = "us-east-1"
+# github_repository           = "hiimmuc/xiongmao-chat-rag"
+# github_branch               = "main"
+# create_github_oidc_provider = true   # false if your account already has the GitHub OIDC provider
+# instance_type               = "t4g.micro"
+# snapshot_retention_days     = 7
+
+# Set to true after reviewing Gemini's data terms; until then no model is offered.
+# provider_retention_verified = true
+# provider_policy_url         = "https://ai.google.dev/gemini-api/terms"
+
+# Extra sites allowed to call the API (CORS), for example a preview copy of the frontend:
+# additional_frontend_origins = ["https://preview.xiong-mao.net"]

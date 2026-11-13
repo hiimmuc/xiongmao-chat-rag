@@ -1,0 +1,10 @@
+# The API image needs only backend/ (see Dockerfile). Send nothing else to the builder.
+*
+!backend
+backend/tests
+backend/.env
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/.venv
+**/*.egg-info
