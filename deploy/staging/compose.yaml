@@ -1,0 +1,8 @@
+# Staging on one GCP VM: ../compose.yaml plus this file (deploy.sh sets COMPOSE_FILE to both).
+# The only difference from production: Caddy also serves the web app, so the browser reaches
+# the app and the API on one domain. Paths are relative to /opt/xiongmao, the project directory.
+services:
+  caddy:
+    volumes:
+      - ./staging/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./web:/srv:ro

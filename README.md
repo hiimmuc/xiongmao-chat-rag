@@ -72,10 +72,10 @@ A 1-year no-upfront Compute Savings Plan for the instance brings this to about $
 ```
 backend/            FastAPI app, worker, Alembic migrations, tests (see backend/README.md)
 frontend/           React + TypeScript (Vite) web app, unit and Playwright tests
-deploy/             What runs on the server: compose.yaml, Caddyfile, deploy.sh
+deploy/             What runs on the server: compose.yaml, Caddyfile, deploy.sh (staging/: the GCP staging VM)
 infra/              Terraform: network, EC2, S3, CloudFront, ACM, ECR, IAM, SSM
 scripts/            start-local.ps1 / stop-local.ps1 / local_db.py for Windows development
-.github/workflows/  ci.yml (tests) and deploy.yml (tests, then backend, then frontend)
+.github/workflows/  ci.yml (tests), deploy.yml (main to AWS), staging.yml (staging to the GCP VM)
 Dockerfile          The API/worker image
 ```
 
@@ -226,6 +226,10 @@ start https://xiong-mao.net
 ```
 
 Create an account on the sign-in page and start chatting. On the very first deploy Caddy may need a minute after DNS resolves to get its certificate.
+
+## Staging on GCP
+
+The `staging` branch deploys to a single Compute Engine VM: Caddy serves the web app and proxies `/api` to the API, with the worker and PostgreSQL alongside, all in Docker Compose. GitHub Actions runs the full test suite, then deploys over SSH. Setup and operations: [docs/staging-gcp.md](docs/staging-gcp.md).
 
 ## Configuration
 

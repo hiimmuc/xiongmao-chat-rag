@@ -1,0 +1,36 @@
+# Staging: the web app and the API on one domain, with an automatic Let's Encrypt certificate.
+# API_DOMAIN is the staging domain (deploy.sh sets it). Its DNS record must point straight at the VM.
+{$API_DOMAIN} {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		Referrer-Policy "no-referrer"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		X-Robots-Tag "noindex, nofollow" # keep staging out of search engines
+		-Server
+	}
+
+	handle /api/* {
+		# Uploads are at most 10 MiB (MAX_UPLOAD_BYTES).
+		request_body {
+			max_size 12MB
+		}
+		reverse_proxy api:8000 {
+			# Send streamed answers (Server-Sent Events) to the browser immediately.
+			flush_interval -1
+		}
+	}
+
+	# The React build. web/current points at the active release (see deploy.sh).
+	handle {
+		root * /srv/current
+		encode zstd gzip
+		# Hashed files never change; everything else (index.html) is revalidated on every visit.
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		header ?Cache-Control "no-cache"
+		# Client routes such as /projects load the app.
+		try_files {path} /index.html
+		file_server
+	}
+}

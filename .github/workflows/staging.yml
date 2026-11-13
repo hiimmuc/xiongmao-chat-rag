@@ -1,0 +1,133 @@
+# Push to the staging branch: run every test, then deploy everything to the one staging VM on GCP over SSH.
+# The VM runs Caddy (HTTPS + the React build), the API, the worker and PostgreSQL in Docker Compose.
+# Settings and secrets live in the GitHub environment "staging" (see docs/staging-gcp.md).
+name: Staging
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: staging
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://${{ vars.STAGING_DOMAIN }}
+    env:
+      TARGET: ${{ vars.STAGING_SSH_USER || 'deploy' }}@${{ vars.STAGING_HOST }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check settings
+        env:
+          HOST: ${{ vars.STAGING_HOST }}
+          DOMAIN: ${{ vars.STAGING_DOMAIN }}
+          KNOWN_HOSTS: ${{ vars.STAGING_SSH_KNOWN_HOSTS }}
+          SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          missing=""
+          for name in HOST DOMAIN KNOWN_HOSTS SSH_KEY JWT_SECRET GEMINI_API_KEY; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          [ -z "$missing" ] || { echo "Missing in the staging environment:$missing (see docs/staging-gcp.md)"; exit 1; }
+          JWT_SECRET=$(printf '%s' "$JWT_SECRET" | tr -d '\r\n')
+          [ ${#JWT_SECRET} -ge 32 ] || { echo "JWT_SECRET must be at least 32 characters"; exit 1; }
+
+      # The VM is x86-64, like the GitHub runner, so the image builds natively.
+      - uses: docker/setup-buildx-action@v3
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          tags: xiongmao-api:${{ github.sha }}
+          outputs: type=docker,dest=${{ runner.temp }}/api.tar
+          cache-from: type=gha,scope=staging
+          cache-to: type=gha,scope=staging,mode=max
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build web app
+        working-directory: frontend
+        env:
+          VITE_API_URL: /api/v1 # same domain as the page: Caddy routes /api to the backend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Assemble the release
+        run: |
+          BUNDLE="$RUNNER_TEMP/bundle"
+          mkdir -p "$BUNDLE/staging"
+          cp deploy/compose.yaml "$BUNDLE/"
+          cp deploy/staging/compose.yaml deploy/staging/Caddyfile deploy/staging/deploy.sh "$BUNDLE/staging/"
+          cp -r frontend/dist "$BUNDLE/site"
+          gzip -c "$RUNNER_TEMP/api.tar" > "$BUNDLE/api.tar.gz"
+          du -sh "$BUNDLE"
+
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          KNOWN_HOSTS: ${{ vars.STAGING_SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' > ~/.ssh/staging
+          chmod 600 ~/.ssh/staging
+          # Pinned host key: the connection fails if the server is not the one you set up.
+          printf '%s\n' "$KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
+          printf 'Host *\n  IdentityFile ~/.ssh/staging\n  IdentitiesOnly yes\n  StrictHostKeyChecking yes\n  ServerAliveInterval 30\n' > ~/.ssh/config
+
+      - name: Upload the release
+        run: |
+          tar -C "$RUNNER_TEMP/bundle" -czf - . |
+            ssh "$TARGET" 'rm -rf /opt/xiongmao/incoming && mkdir -p /opt/xiongmao/incoming && tar -xzf - -C /opt/xiongmao/incoming'
+
+      # Secrets go over SSH straight into a file only the deploy user can read; they never touch the runner's disk.
+      - name: Upload settings
+        env:
+          DOMAIN: ${{ vars.STAGING_DOMAIN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          KEY_ENCRYPTION_KEY: ${{ secrets.KEY_ENCRYPTION_KEY }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          MODEL_CATALOG_JSON: ${{ vars.MODEL_CATALOG_JSON }}
+          PROVIDER_RETENTION_VERIFIED: ${{ vars.PROVIDER_RETENTION_VERIFIED }}
+          PROVIDER_POLICY_URL: ${{ vars.PROVIDER_POLICY_URL }}
+        run: |
+          # Empty values are left out, so the app's defaults apply.
+          for name in DOMAIN GEMINI_API_KEY OPENAI_API_KEY KEY_ENCRYPTION_KEY JWT_SECRET \
+            MODEL_CATALOG_JSON PROVIDER_RETENTION_VERIFIED PROVIDER_POLICY_URL; do
+            value=$(printf '%s' "${!name}" | tr -d '\r\n') # pasted values often end with a stray newline
+            [ -z "$value" ] || printf '%s=%s\n' "$name" "$value"
+          done | ssh "$TARGET" 'umask 077 && cat > /opt/xiongmao/incoming/app.env'
+
+      - name: Deploy
+        run: ssh "$TARGET" "bash /opt/xiongmao/incoming/staging/deploy.sh ${{ github.sha }}"
+
+      - name: Check it from outside
+        env:
+          DOMAIN: ${{ vars.STAGING_DOMAIN }}
+        run: |
+          # On the first deploy Caddy may need a minute to get its certificate.
+          for _ in $(seq 1 24); do
+            if curl -fsS "https://$DOMAIN/api/v1/health/ready" && curl -fsS -o /dev/null "https://$DOMAIN/"; then
+              echo; echo "Staging is up: https://$DOMAIN"; exit 0
+            fi
+            sleep 5
+          done
+          echo "https://$DOMAIN did not answer. Check DNS and: ssh $TARGET 'cd /opt/xiongmao && docker compose logs caddy'"
+          exit 1

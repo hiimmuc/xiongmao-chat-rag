@@ -46,7 +46,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Upload server files
-        run: aws s3 sync deploy/ "s3://$DEPLOY_BUCKET/" --delete
+        run: aws s3 sync deploy/ "s3://$DEPLOY_BUCKET/" --delete --exclude "staging/*"
 
       - name: Run deploy.sh on the server through SSM
         run: |
