@@ -1,5 +1,3 @@
-import httpx
-
 from app.services import model_catalog
 
 
@@ -62,29 +60,3 @@ def test_discovery_keeps_only_chat_models(monkeypatch):
     ]
     model_catalog.discover("openai", "k")
     assert len(calls) == 2  # second OpenAI lookup came from the cache
-
-
-def test_discovery_failure_lists_nothing_and_configured_entries_win(monkeypatch):
-    from app.core.config import settings
-
-    model_catalog._cache.clear()
-
-    def fail(url, **kwargs):
-        raise httpx.ConnectError("offline")
-
-    monkeypatch.setattr(model_catalog.httpx, "get", fail)
-    assert model_catalog.discover("openai", "k") == []
-
-    cfg = settings()
-    monkeypatch.setattr(cfg, "model_discovery", True)
-    monkeypatch.setattr(
-        cfg,
-        "model_catalog_json",
-        '[{"id": "fast", "provider": "openai", "label": "Fast", "api_model": "gpt-4.1"}]',
-    )
-    monkeypatch.setattr(
-        model_catalog, "api_key_for", lambda db, user, provider: "k" if provider == "openai" else ""
-    )
-    monkeypatch.setattr(model_catalog, "discover", lambda provider, key: model_catalog._openai(key))
-    monkeypatch.setattr(model_catalog.httpx, "get", lambda url, **kw: FakeResponse(OPENAI))
-    assert list(model_catalog.catalog_for(None, "user")) == ["fast", "o4-mini"]

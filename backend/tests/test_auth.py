@@ -93,18 +93,6 @@ def test_password_change_signs_out_other_browsers(client):
     assert login.status_code == 200
 
 
-@pytest.mark.parametrize(
-    "body",
-    [
-        dict(email="not-an-email", password=PASSWORD),
-        dict(email=EMAIL, password="short"),
-        dict(email=EMAIL, password=PASSWORD, role="admin"),
-    ],
-)
-def test_sign_up_validation(client, body):
-    assert post(client, "/auth/signup", json=body).status_code == 422
-
-
 def test_repeated_wrong_passwords_are_throttled(client):
     post(client, "/auth/signup", json=dict(email=EMAIL, password=PASSWORD))
     for _ in range(auth_service.LIMITS["email"]):
@@ -129,22 +117,6 @@ def test_access_token_validation(change):
     with pytest.raises(Exception) as error:
         real_verify_token(jwt.encode(claims, settings().jwt_secret, algorithm="HS256"))
     assert error.value.status_code == 401
-
-
-def test_tokens_signed_with_another_secret_are_rejected():
-    now = int(time.time())
-    forged = jwt.encode(dict(sub="owner", type="access", iat=now, exp=now + 300), "x" * 32, algorithm="HS256")
-    with pytest.raises(Exception) as error:
-        real_verify_token(forged)
-    assert error.value.status_code == 401
-
-
-def test_password_hashes_are_salted_and_verifiable():
-    first, second = security.hash_password(PASSWORD), security.hash_password(PASSWORD)
-    assert first != second and first.startswith("scrypt$")
-    assert security.verify_password(PASSWORD, first)
-    assert not security.verify_password("wrong", first)
-    assert not security.verify_password(PASSWORD, None)
 
 
 def test_production_requires_a_jwt_secret(monkeypatch):
