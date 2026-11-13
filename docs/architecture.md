@@ -116,6 +116,8 @@ The first-boot script (`infra/user_data.sh.tftpl`) installs Docker, adds 2 GiB s
 
 ## Security
 
+The full analysis, including what to do after an attack, is in [security.md](security.md).
+
 | Concern | How it is handled |
 | --- | --- |
 | Cloud credentials | No AWS keys in GitHub. Actions assumes the role `xiongmao-github-deploy` through OpenID Connect, and only pushes to `main` of `hiimmuc/xiongmao-chat-rag` may. The role can push one ECR repository, write two buckets, invalidate one distribution, and run commands only on the instance tagged `xiongmao-api`. |
