@@ -88,11 +88,10 @@ $vars.PSObject.Properties | ForEach-Object { gh variable set $_.Name --body $_.V
 
 ## 7. Deploy
 
-Only pushes to `main` can deploy (`github_branch` in Terraform). Merge the tested `staging` branch into `main` and push:
+The `main` branch belongs to production: only pushes to it can deploy to AWS (`github_branch` in Terraform). Push it:
 
 ```powershell
 git switch main
-git merge staging
 git push
 gh run watch
 ```

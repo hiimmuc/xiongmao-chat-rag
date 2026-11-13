@@ -113,11 +113,13 @@ npx playwright install chromium; npm run test:e2e   # uses a mocked API
 
 ## Branches and CI/CD
 
+Each deploy branch owns one environment:
+
 ```mermaid
 flowchart LR
-    feature[feature branch<br/>or pull request] -- CI only --> dev
-    dev -- merge --> staging -- "tests, then deploy" --> gcp[GCP staging VM]
-    staging -- "merge when verified" --> main -- "tests, then deploy" --> aws[AWS production]
+    other[any other branch<br/>or pull request] -- "tests only" --> ci[CI]
+    staging[staging branch] -- "tests, then deploy" --> gcp[GCP VM<br/>staging]
+    main[main branch] -- "tests, then deploy" --> aws[AWS<br/>production]
 ```
 
 | Workflow | Runs on | Does |

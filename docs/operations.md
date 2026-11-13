@@ -36,7 +36,7 @@ docker compose restart api
 
 | Situation | Do |
 | --- | --- |
-| Code change | Merge into `main` and push. The Deploy workflow tests, ships the backend, then the frontend. |
+| Code change | Push to `main`. The Deploy workflow tests, ships the backend, then the frontend. |
 | Non-secret setting | Edit `terraform.tfvars`, `terraform apply`, then `gh workflow run deploy.yml`. |
 | Secret | `aws ssm put-parameter --name "/xiongmao/prod/NAME" --type SecureString --value "..." --overwrite`, then `gh workflow run deploy.yml`. |
 | Re-run without a change | `gh workflow run deploy.yml` |

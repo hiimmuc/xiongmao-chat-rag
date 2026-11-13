@@ -1,6 +1,6 @@
 # Staging on one GCP VM
 
-Staging runs the whole app on one Compute Engine VM, to check a release before it reaches production. Pushing to the `staging` branch runs every test, then GitHub Actions deploys over SSH.
+Staging runs the whole app on one Compute Engine VM. The `staging` branch belongs to this VM: every push to it runs all the tests, then GitHub Actions deploys over SSH. Production is separate and runs on AWS from the `main` branch ([deploy-aws.md](deploy-aws.md)).
 
 ```mermaid
 flowchart LR
@@ -154,11 +154,10 @@ Remove-Item staging_deploy   # the private key now lives only in GitHub
 
 The workflow checks the required ones first and names any that are missing.
 
-**6. Deploy.** Bring `staging` up to date with `dev` and push it:
+**6. Deploy.** Every push to the `staging` branch deploys:
 
 ```powershell
 git switch staging
-git merge dev
 git push
 gh run watch
 start https://34-171-6-73.sslip.io
