@@ -1,4 +1,4 @@
-"""Local PostgreSQL + pgvector for Windows development, without Docker or an installer.
+"""Local PostgreSQL + pgvector for development on Windows, Linux and macOS, without Docker or an installer.
 
 Uses the `pgserver` package, which ships PostgreSQL binaries with pgvector built in.
 Data lives in .local-postgres/ at the repository root.
@@ -17,8 +17,11 @@ DATA = Path(__file__).resolve().parent.parent / ".local-postgres"
 DATABASES = ("chatbot", "chatbot_test")  # app and pytest
 PORT = 55432  # fixed, so database tools (pgAdmin, DBeaver, VS Code) can save the connection
 
+WINDOWS = sys.platform == "win32"
 # pgserver normally picks a random free port on Windows; always use PORT instead.
-pgserver.postgres_server.find_suitable_port = lambda address=None: PORT
+# On Linux and macOS it listens on a Unix socket only, so there is no port to fix.
+if WINDOWS:
+    pgserver.postgres_server.find_suitable_port = lambda address=None: PORT
 
 
 def start():
@@ -26,8 +29,11 @@ def start():
     for name in DATABASES:
         if not server.psql(f"SELECT 1 FROM pg_database WHERE datname = '{name}';").count("(1 row)"):
             server.psql(f"CREATE DATABASE {name};")
-    base = server.get_uri().rsplit("/", 1)[0].replace("postgresql://", "postgresql+psycopg://")
-    print(base + "/chatbot")
+    if WINDOWS:
+        base = server.get_uri().rsplit("/", 1)[0].replace("postgresql://", "postgresql+psycopg://")
+        print(base + "/chatbot")
+    else:  # the socket directory is line 5 of postmaster.pid
+        print(f"postgresql+psycopg://postgres:@/chatbot?host={(DATA / 'postmaster.pid').read_text().splitlines()[4]}")
 
 
 def stop():

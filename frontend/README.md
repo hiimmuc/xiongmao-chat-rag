@@ -50,15 +50,15 @@ It is compiled into public JavaScript, so it must never hold a key.
 
 ## Commands
 
-Run from `frontend\`:
+Run from `frontend/`:
 
 | Command | Does |
 | --- | --- |
 | `npm ci` | Install the exact versions in `package-lock.json` |
-| `npm run dev` | Dev server on http://localhost:5173 (`start-local.ps1` runs it for you) |
+| `npm run dev` | Dev server on http://localhost:5173 (the start-local script runs it for you) |
 | `npm test` | Unit tests (Vitest) |
 | `npm run typecheck` | TypeScript check only |
 | `npm run build` | Type-check and build into `dist/` |
-| `npx playwright install chromium; npm run test:e2e` | End-to-end test in a real browser, with every API call mocked (port 5180) |
+| `npx playwright install chromium && npm run test:e2e` | End-to-end test in a real browser, with every API call mocked (port 5180) |
 
 CI runs `npm test`, `npm run build` and `npm run test:e2e` on every push.

@@ -5,7 +5,7 @@ The API and the worker read their settings from environment variables (in code: 
 ```mermaid
 flowchart LR
     subgraph local[Local]
-        envfile[.env file] --> start[start-local.ps1<br/>adds database, storage, CORS]
+        envfile[.env file] --> start[start-local.sh / .ps1<br/>adds database, storage, CORS]
     end
     subgraph staging[Staging, GCP]
         ghenv[GitHub environment<br/>staging] --> appenv[app.env on the VM] --> sdeploy[deploy/staging/deploy.sh<br/>adds database, APP_ENV, CORS]
@@ -26,7 +26,7 @@ Settings are read when the containers start, so a change takes effect on the nex
 
 | Environment | Non-secret settings | Secrets | Apply the change |
 | --- | --- | --- | --- |
-| Local | `.env` (copy from `.env.example`) | `.env` | restart `start-local.ps1` |
+| Local | `.env` (copy from `.env.example`) | `.env` | restart `start-local.sh` (Linux/macOS) or `start-local.ps1` (Windows) |
 | Staging | GitHub > Settings > Environments > `staging` > Variables | same page, Secrets | `gh workflow run staging.yml --ref staging` |
 | Production | `infra/terraform.tfvars`, then `terraform apply` | `aws ssm put-parameter --overwrite` under `/xiongmao/prod/` | `gh workflow run deploy.yml` |
 
@@ -40,7 +40,7 @@ Never commit `.env` or `terraform.tfvars`. Both are git-ignored.
 | `JWT_SECRET` | random per run, local only | **Secret, required in production**, 32+ characters. Signs access tokens. Changing it ends current access tokens; browsers renew them with their refresh cookie. |
 | `KEY_ENCRYPTION_KEY` | none | **Secret.** Fernet key that encrypts users' own API keys. Without it, saving a key returns 503. |
 | `OPENAI_API_KEY` | none | **Secret, optional.** Also offer OpenAI models. |
-| `PROVIDER_RETENTION_VERIFIED` | `false` | Set `true` once you have reviewed the provider's data terms. Until then no model is offered. Locally, `start-local.ps1 -PaidCalls` sets it. |
+| `PROVIDER_RETENTION_VERIFIED` | `false` | Set `true` once you have reviewed the provider's data terms. Until then no model is offered. Locally, `start-local.sh --paid-calls` (`start-local.ps1 -PaidCalls` on Windows) sets it. |
 | `PROVIDER_POLICY_URL` | none | Link to those terms, shown in Settings. |
 | `MODEL_DISCOVERY` | `true` | List every chat model each provider offers for the key in use, refreshed hourly. |
 | `MODEL_CATALOG_JSON` | `[]` | Fixed models, listed first: `[{id, provider, label, api_model, context_tokens}]`. An entry overrides the discovered model with the same `api_model`. The `id` is stored with chat history, so never reuse one for a different model. |

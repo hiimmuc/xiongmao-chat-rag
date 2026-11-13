@@ -96,12 +96,14 @@ For example, "tags on conversations":
 
 ## Run and test
 
-Full setup is in the main [README](../README.md#run-locally-on-windows). In short, from the repository root on Windows:
+Full setup is in the main [README](../README.md#run-locally). In short, from the repository root on Linux or macOS:
 
-```powershell
-.\scripts\start-local.ps1 -PaidCalls      # database, API, worker, web app
+```bash
+./scripts/start-local.sh --paid-calls      # database, API, worker, web app
 cd backend
-$env:DATABASE_URL = (.venv\Scripts\python ..\scripts\local_db.py start) -replace '/chatbot$', '/chatbot_test'
-.venv\Scripts\python -m pytest
-.venv\Scripts\ruff check app worker migrations tests
+export DATABASE_URL=$(.venv/bin/python ../scripts/local_db.py start | sed 's#/chatbot?#/chatbot_test?#')
+.venv/bin/python -m pytest
+.venv/bin/ruff check app worker migrations tests
 ```
+
+On Windows, see the PowerShell commands in the README.

@@ -64,15 +64,14 @@ sequenceDiagram
 
 If the API does not become ready, the web app is not switched and the run fails, so the old web app keeps working.
 
-## One-time setup (PowerShell on Windows)
+## One-time setup
 
 These commands create billable GCP resources. Nothing below is created automatically.
 
 **1. Tools and project**
 
-```powershell
-winget install Google.CloudSDK
-winget install GitHub.cli
+```bash
+# Install the Google Cloud CLI (cloud.google.com/sdk/docs/install) and the GitHub CLI (cli.github.com) first.
 gcloud auth login
 gcloud config set project YOUR_PROJECT_ID
 gcloud config set compute/region us-central1
@@ -82,16 +81,16 @@ gcloud services enable compute.googleapis.com
 
 **2. A fixed IP, the VM and the firewall**
 
-```powershell
+```bash
 gcloud compute addresses create xiongmao-staging
-gcloud compute instances create xiongmao-staging `
-  --machine-type e2-small `
-  --image-family ubuntu-2404-lts-amd64 --image-project ubuntu-os-cloud `
-  --boot-disk-size 20GB --boot-disk-type pd-balanced `
+gcloud compute instances create xiongmao-staging \
+  --machine-type e2-small \
+  --image-family ubuntu-2404-lts-amd64 --image-project ubuntu-os-cloud \
+  --boot-disk-size 20GB --boot-disk-type pd-balanced \
   --address xiongmao-staging --tags xiongmao-web
 gcloud compute firewall-rules create xiongmao-web --allow tcp:80,tcp:443 --target-tags xiongmao-web
-$ip = gcloud compute addresses describe xiongmao-staging --format "value(address)"
-$ip
+ip=$(gcloud compute addresses describe xiongmao-staging --format "value(address)")
+echo "$ip"
 ```
 
 `e2-small` (2 GB) is comfortable. `e2-micro` (1 GB, free tier in some US regions) also works thanks to the swap the setup script adds, but indexing is slower. Port 22 is open through the default network's `default-allow-ssh` rule. GitHub's runners have no fixed addresses, so it must stay open, but only key logins work.
@@ -107,35 +106,35 @@ Caddy needs direct traffic to get its certificate, and Cloudflare's proxy would 
 
 **4. A key for GitHub Actions and the VM setup**
 
-```powershell
-ssh-keygen -t ed25519 -f staging_deploy -N '""' -C github-staging
-gcloud compute scp deploy\staging\setup-vm.sh staging_deploy.pub xiongmao-staging:~
+```bash
+ssh-keygen -t ed25519 -f staging_deploy -N '' -C github-staging
+gcloud compute scp deploy/staging/setup-vm.sh staging_deploy.pub xiongmao-staging:~
 gcloud compute ssh xiongmao-staging --command "sudo bash setup-vm.sh staging_deploy.pub"
-ssh-keyscan -t ed25519 $ip > staging_known_hosts
+ssh-keyscan -t ed25519 "$ip" > staging_known_hosts
 ```
 
 `setup-vm.sh` installs Docker, adds 2 GiB swap, creates the `deploy` user (Docker access, no sudo, key login only) and creates `/opt/xiongmao` and `/data`. `staging_known_hosts` holds the VM's host key: the deploy refuses to talk to any other server.
 
 **5. The GitHub environment `staging`.** Generate the secrets:
 
-```powershell
-$jwt = backend\.venv\Scripts\python -c "import secrets; print(secrets.token_urlsafe(48))"
-$fernet = backend\.venv\Scripts\python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```bash
+jwt=$(backend/.venv/bin/python -c "import secrets; print(secrets.token_urlsafe(48))")
+fernet=$(backend/.venv/bin/python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
 ```
 
 Then store them along with the rest (replace the domain with yours from step 3):
 
-```powershell
-gh api -X PUT "repos/{owner}/{repo}/environments/staging" | Out-Null
-gh variable set STAGING_HOST --env staging --body $ip
+```bash
+gh api -X PUT "repos/{owner}/{repo}/environments/staging" > /dev/null
+gh variable set STAGING_HOST --env staging --body "$ip"
 gh variable set STAGING_DOMAIN --env staging --body "34-171-6-73.sslip.io"
-gh variable set STAGING_SSH_KNOWN_HOSTS --env staging --body (Get-Content staging_known_hosts -Raw)
+gh variable set STAGING_SSH_KNOWN_HOSTS --env staging --body "$(cat staging_known_hosts)"
 gh variable set PROVIDER_RETENTION_VERIFIED --env staging --body "true"   # after reviewing Gemini's data terms
-Get-Content staging_deploy -Raw | gh secret set STAGING_SSH_KEY --env staging
-gh secret set JWT_SECRET --env staging --body $jwt
-gh secret set KEY_ENCRYPTION_KEY --env staging --body $fernet
+gh secret set STAGING_SSH_KEY --env staging < staging_deploy
+gh secret set JWT_SECRET --env staging --body "$jwt"
+gh secret set KEY_ENCRYPTION_KEY --env staging --body "$fernet"
 gh secret set GEMINI_API_KEY --env staging --body "YOUR_GEMINI_KEY"
-Remove-Item staging_deploy   # the private key now lives only in GitHub
+rm staging_deploy   # the private key now lives only in GitHub
 ```
 
 | Name | Kind | Required | Purpose |
@@ -156,18 +155,18 @@ The workflow checks the required ones first and names any that are missing.
 
 **6. Deploy.** Every push to the `staging` branch deploys:
 
-```powershell
+```bash
 git switch staging
 git push
 gh run watch
-start https://34-171-6-73.sslip.io
+xdg-open https://34-171-6-73.sslip.io   # macOS: open
 ```
 
 To redeploy without a code change (for example after changing a secret): `gh workflow run staging.yml --ref staging`.
 
 ## Operating it
 
-```powershell
+```bash
 gcloud compute ssh xiongmao-staging
 ```
 
@@ -185,7 +184,7 @@ docker compose exec -T db pg_dump -U chatbot chatbot | gzip > /data/backup.sql.g
 
 For backups, add a snapshot schedule to the boot disk:
 
-```powershell
+```bash
 gcloud compute resource-policies create snapshot-schedule xiongmao-daily --max-retention-days 7 --daily-schedule --start-time 04:00
 gcloud compute disks add-resource-policies xiongmao-staging --resource-policies xiongmao-daily
 ```
