@@ -200,9 +200,9 @@ Dockerfile          The API and worker image (one image, two commands)
 
 ## Limits
 
-- **One server, one worker.** If the server is down, the app is down. Recovery is in [operations](docs/operations.md).
-- **Per user:** 10 answers a minute, 100 a day, 2 at a time, 100 files, 100 MiB. These are safeguards, not a spending cap.
-- **Sign-in:** 5 wrong passwords lock that email for 15 minutes (20 per IP address). No email verification or emailed password reset yet.
-- **Documents:** no OCR, so scanned PDFs are rejected. Gemini does not report embedding token counts, so indexing cost shows as unknown.
-- **Failures:** no automatic provider retry, and no worker takeover after a crash (paid calls are never replayed on their own).
-- **Deletion:** deleted content is hidden at once and purged by the worker. Copies already sent to Gemini follow Google's retention terms.
+- One server, one worker. If the server is down, the app is down. Recovery is in [operations](docs/operations.md).
+- Per user: 10 answers a minute, 100 a day, 2 at a time, 100 files, 100 MiB. These are safeguards, not a spending cap.
+- Sign-in: 5 wrong passwords lock that email for 15 minutes (20 per IP address). No email verification or emailed password reset yet.
+- Documents: no OCR, so scanned PDFs are rejected. Gemini does not report embedding token counts, so indexing cost shows as unknown.
+- Failures: no automatic provider retry, and no worker takeover after a crash (paid calls are never replayed on their own).
+- Deletion: deleted content is hidden at once and purged by the worker. Copies already sent to Gemini follow Google's retention terms.

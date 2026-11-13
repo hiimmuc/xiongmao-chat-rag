@@ -72,7 +72,7 @@ flowchart LR
     route --> resp([JSON or SSE response])
 ```
 
-The rules that keep the layers easy to follow:
+Layer rules:
 
 - `api/` only talks HTTP: path and query parameters, status codes, the JSON shape (`*_json` helpers).
 - `services/` holds the logic. It may raise `HTTPException` for "not found" and "not allowed" cases, but never defines routes.

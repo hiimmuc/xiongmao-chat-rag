@@ -105,7 +105,7 @@ Add both records in Cloudflare with proxy status **DNS only** (grey cloud):
 | CNAME | `xiong-mao.net` (`@`) | `dxxxxxxxx.cloudfront.net` |
 | A | `api` | the Elastic IP |
 
-"DNS only" matters. Caddy needs direct traffic to obtain its certificate, and Cloudflare's proxy would cut long streamed answers after 100 seconds.
+Use "DNS only". Caddy needs direct traffic to obtain its certificate, and Cloudflare's proxy would cut long streamed answers after 100 seconds.
 
 ## 5. Store the secrets in SSM Parameter Store
 

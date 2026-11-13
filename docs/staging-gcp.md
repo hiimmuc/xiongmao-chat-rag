@@ -70,7 +70,7 @@ Each command is given for Linux, macOS (bash or zsh), WSL and Git Bash, and for 
 
 These commands create billable GCP resources. Nothing below is created automatically.
 
-**1. Tools and project**
+### **1. Tools and project**
 
 **Linux, macOS (bash or zsh), WSL, Git Bash:**
 
@@ -95,7 +95,7 @@ gcloud config set compute/zone us-central1-a
 gcloud services enable compute.googleapis.com
 ```
 
-**2. A fixed IP, the VM and the firewall**
+### **2. A fixed IP, the VM and the firewall**
 
 **Linux, macOS (bash or zsh), WSL, Git Bash:**
 
@@ -127,7 +127,7 @@ $ip
 
 `e2-small` (2 GB) is comfortable. `e2-micro` (1 GB, free tier in some US regions) also works thanks to the swap the setup script adds, but indexing is slower. Port 22 is open through the default network's `default-allow-ssh` rule. GitHub's runners have no fixed addresses, so it must stay open, but only key logins work.
 
-**3. A domain.** Pick one:
+### **3. A domain.** Pick one
 
 | Option | Domain to use | Setup |
 | --- | --- | --- |
@@ -136,7 +136,7 @@ $ip
 
 Caddy needs direct traffic to get its certificate, and Cloudflare's proxy would cut long answers, so never turn the proxy on.
 
-**4. A key for GitHub Actions and the VM setup**
+### **4. A key for GitHub Actions and the VM setup**
 
 **Linux, macOS (bash or zsh), WSL, Git Bash:**
 
@@ -158,7 +158,7 @@ ssh-keyscan -t ed25519 $ip > staging_known_hosts
 
 `setup-vm.sh` installs Docker, adds 2 GiB swap, creates the `deploy` user (Docker access, no sudo, key login only) and creates `/opt/xiongmao` and `/data`. `staging_known_hosts` holds the VM's host key: the deploy refuses to talk to any other server.
 
-**5. The GitHub environment `staging`.** Generate the secrets:
+### **5. The GitHub environment `staging`.** Generate the secrets
 
 **Linux, macOS (bash or zsh), WSL, Git Bash:**
 
@@ -222,7 +222,7 @@ Remove-Item staging_deploy   # the private key now lives only in GitHub
 
 The workflow checks the required ones first and names any that are missing.
 
-**6. Deploy.** Every push to the `staging` branch deploys:
+### **6. Deploy.** Every push to the `staging` branch deploys
 
 **Linux, macOS (bash or zsh), WSL, Git Bash:**
 
