@@ -25,7 +25,7 @@ def api(monkeypatch, tmp_path):
     with admin.begin() as connection:
         connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         connection.execute(text(f"CREATE SCHEMA {schema}"))
-    engine = create_engine(url, connect_args={"options": f"-csearch_path={schema},public"})
+    engine = create_engine(url, connect_args={"options": f"-csearch_path={schema},public -ctimezone=UTC"})
     sessions = sessionmaker(engine, expire_on_commit=False)
     Base.metadata.create_all(engine, checkfirst=False)
 

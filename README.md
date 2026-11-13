@@ -64,7 +64,7 @@ Local mode needs no cloud account and no Docker. The database is a project-local
 
 ### Linux and macOS
 
-**1. Install the tools** once: Python 3.12 and Node.js 20 or newer. With [uv](https://docs.astral.sh/uv/), `uv venv --python 3.12` fetches Python 3.12 for you.
+**1. Install the tools** once: Python 3.12 and Node.js 20 or newer. With [uv](https://docs.astral.sh/uv/), `uv venv --python 3.12` fetches Python 3.12 for you. On macOS, `brew install uv node` is enough. The commands work in bash and zsh. On Windows they also work in WSL and Git Bash, as an alternative to the PowerShell section below.
 
 **2. Install dependencies** from the repository root:
 

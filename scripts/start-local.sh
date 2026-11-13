@@ -6,6 +6,7 @@
 #
 #   ./scripts/start-local.sh --paid-calls   # allow real Gemini/OpenAI calls with the keys in .env (costs money)
 set -euo pipefail
+set -m  # job control: every background job gets its own process group (works on Linux and macOS)
 cd "$(dirname "$0")/.."
 root=$PWD
 python=$root/backend/.venv/bin/python
@@ -31,7 +32,7 @@ mkdir -p .local-run
 start() { # name, dir, command...
   local name=$1 dir=$2; shift 2
   cd "$dir"
-  setsid "$@" > "$root/.local-run/$name.log" 2>&1 < /dev/null &  # own process group, so stop-local.sh can kill the whole tree
+  "$@" > "$root/.local-run/$name.log" 2>&1 < /dev/null &  # own process group (set -m), so stop-local.sh kills the whole tree
   echo $! >> "$root/.local-run/pids.txt"
   cd "$root"
 }
