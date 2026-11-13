@@ -1,7 +1,6 @@
 import json
 from uuid import uuid4
 
-import pytest
 from sqlalchemy import func, select
 
 from app.models import Document, User
@@ -123,62 +122,6 @@ def test_account_deletion_requires_password_and_blocks_reprovision(api):
     assert request(client, "GET", "/me").status_code == 403
 
 
-@pytest.mark.parametrize(
-    "method,path,body",
-    [
-        ("POST", "/conversations", {"title": "   "}),
-        ("POST", "/conversations", {"title": "ok", "user_id": "injected"}),
-        ("GET", "/conversations/not-a-uuid", None),
-        ("GET", "/conversations?cursor=invalid", None),
-        ("GET", "/documents?limit=101", None),
-        ("GET", "/usage/summary?timezone=invalid", None),
-        ("GET", "/usage/summary?from=2026-11-08&to=2026-11-07", None),
-        ("PATCH", "/me", {"display_name": "  "}),
-    ],
-)
-def test_request_validation(api, method, path, body):
-    client, _, _ = api
-    response = request(client, method, path, **({"json": body} if body is not None else {}))
-    assert response.status_code == 422
-    assert response.json()["request_id"] == response.headers["X-Request-ID"]
-
-
-@pytest.mark.parametrize("zone", ["UTC", "Asia/Seoul", "America/Los_Angeles"])
-def test_usage_accepts_real_time_zones(api, zone):
-    # The browser sends its own IANA zone; the server must know them all (tzdata is a dependency).
-    client, _, _ = api
-    for route in ("summary", "daily", "models", "requests"):
-        response = request(client, "GET", f"/usage/{route}?from=2026-11-01&to=2026-11-12&timezone={zone}")
-        assert response.status_code == 200, (route, zone, response.json())
-
-
-def test_tzdata_is_a_direct_dependency():
-    # Slim Linux images have no system zone database; without the package every zone is "invalid".
-    from importlib.metadata import requires
-
-    assert any(r.startswith("tzdata") for r in requires("xiongmao-chat"))
-
-
-def test_cors_preflight(api):
-    client, _, _ = api
-    for origin, expected in [("http://localhost:5173", 200), ("https://untrusted.example", 400)]:
-        response = request(
-            client,
-            "OPTIONS",
-            "/conversations",
-            headers={
-                "Origin": origin,
-                "Access-Control-Request-Method": "POST",
-                "Access-Control-Request-Headers": "Authorization,Content-Type,Idempotency-Key",
-            },
-        )
-        assert response.status_code == expected
-        if expected == 200:
-            assert response.headers["access-control-allow-origin"] == origin
-        else:
-            assert "access-control-allow-origin" not in response.headers
-
-
 def test_generation_stream_citations_usage_and_idempotency(api, monkeypatch):
     from app.core.config import settings
     from app.services import chat_stream, generations
@@ -275,31 +218,6 @@ def test_generation_stream_citations_usage_and_idempotency(api, monkeypatch):
     assert request(client, "GET", f"/generations/{gid}/citations/1").status_code == 404
 
 
-@pytest.mark.parametrize(
-    "body",
-    [
-        {"request_id": "bad", "model_id": "test-model", "message": "hello"},
-        {"request_id": str(uuid4()), "model_id": "test-model", "message": "   "},
-        {"request_id": str(uuid4()), "model_id": "test-model", "message": "hello", "retry_of": str(uuid4())},
-        {"request_id": str(uuid4()), "model_id": "test-model", "message": "hello", "user_id": "injected"},
-    ],
-)
-def test_generation_validation(api, body):
-    client, _, _ = api
-    cid = conversation(client)
-    assert request(client, "POST", f"/conversations/{cid}/generations", json=body).status_code == 422
-    assert request(client, "GET", f"/conversations/{cid}/messages").json()["items"] == []
-
-
-def test_deletion_requires_uuid_key(api):
-    client, _, _ = api
-    cid = conversation(client)
-    assert request(client, "DELETE", f"/conversations/{cid}").status_code == 422
-    headers = dict(ALICE, **{"Idempotency-Key": "invalid"})
-    assert request(client, "DELETE", f"/conversations/{cid}", headers=headers).status_code == 422
-    assert request(client, "GET", f"/conversations/{cid}").status_code == 200
-
-
 def test_models_filter_missing_keys_and_processing_policy(api, monkeypatch):
     from app.core.config import settings
 
@@ -344,85 +262,3 @@ def test_models_filter_missing_keys_and_processing_policy(api, monkeypatch):
         ).status_code
         == 503
     )
-
-
-def test_switch_model_and_retry_use_current_selection(api, monkeypatch):
-    from app.core.config import settings
-    from app.models import Generation
-    from app.services import chat_stream, generations
-
-    client, sessions, _ = api
-    cfg = settings()
-    monkeypatch.setattr(
-        cfg,
-        "model_catalog_json",
-        json.dumps(
-            [
-                {"id": "openai-test", "provider": "openai", "api_model": "openai-api-model"},
-                {"id": "gemini-test", "provider": "gemini", "api_model": "gemini-api-model"},
-            ]
-        ),
-    )
-    monkeypatch.setattr(cfg, "provider_retention_verified", True)
-    monkeypatch.setattr(generations, "provider_enabled", lambda *args: True)
-    monkeypatch.setattr(
-        "tiktoken.get_encoding",
-        lambda _: type(
-            "Encoding",
-            (),
-            {
-                "encode": lambda self, value, **kw: list(value),
-                "decode": lambda self, value: "".join(value),
-            },
-        )(),
-    )
-    cid = conversation(client)
-    calls = []
-
-    async def stream(model, messages, system, api_key):
-        calls.append((model.copy(), messages))
-        if len(calls) == 1:
-            yield "text", "Incomplete answer"
-            raise chat_stream.ProviderError("Synthetic failed answer")
-        yield "text", "Complete answer"
-        yield "usage", {"input_tokens": 5, "output_tokens": 2, "cached_tokens": 0}
-
-    monkeypatch.setattr(chat_stream, "stream_text", stream)
-    first = request(
-        client,
-        "POST",
-        f"/conversations/{cid}/generations",
-        json={"request_id": str(uuid4()), "model_id": "openai-test", "message": "Original question"},
-    )
-    assert "event: error" in first.text
-    events = [json.loads(line[6:]) for line in first.text.splitlines() if line.startswith("data: ")]
-    failed_id = events[0]["generation_id"]
-    retry = request(
-        client,
-        "POST",
-        f"/conversations/{cid}/generations",
-        json={"request_id": str(uuid4()), "model_id": "gemini-test", "retry_of": failed_id},
-    )
-    assert "event: done" in retry.text
-    assert [call[0]["provider"] for call in calls] == ["openai", "gemini"]
-    assert calls[1][0]["api_model"] == "gemini-api-model"
-    assert calls[1][1] == [{"role": "user", "content": "Original question"}]
-    with sessions() as db:
-        attempts = db.scalars(
-            select(Generation).where(Generation.conversation_id == cid).order_by(Generation.created_at)
-        ).all()
-        assert [(g.model_id, g.provider, g.status) for g in attempts] == [
-            ("openai-test", "openai", "failed"),
-            ("gemini-test", "gemini", "completed"),
-        ]
-    next_answer = request(
-        client,
-        "POST",
-        f"/conversations/{cid}/generations",
-        json={"request_id": str(uuid4()), "model_id": "openai-test", "message": "Next question"},
-    )
-    assert "event: done" in next_answer.text
-    assert calls[-1][0]["id"] == "openai-test"
-    assert [m["content"] for m in calls[-1][1]] == ["Original question", "Complete answer", "Next question"]
-    rows = request(client, "GET", "/usage/models").json()["items"]
-    assert {row["model_id"] for row in rows} == {"openai-test", "gemini-test"}

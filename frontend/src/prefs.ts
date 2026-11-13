@@ -7,6 +7,8 @@ export type Prefs = {
   notifications: { enabled: boolean; document_processing: boolean; system: boolean };
   models: string[];
 };
+// Models in the picker until the user changes the selection (keep in sync with backend/app/schemas/account.py).
+export const DEFAULT_MODELS = ["gpt-4o", "gpt-4.1", "gpt-4.1-mini", "gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.6-flash"];
 export const DEFAULTS: Prefs = {
   mode: "system",
   color_theme: "claude",
@@ -14,7 +16,7 @@ export const DEFAULTS: Prefs = {
   font_size: "medium",
   response_style: "default",
   notifications: { enabled: true, document_processing: true, system: true },
-  models: [],
+  models: [...DEFAULT_MODELS],
 };
 export const THEMES = ["default", "github", "claude", "gemini", "monokai"] as const;
 export const STYLES: [Prefs["response_style"], string, string][] = [

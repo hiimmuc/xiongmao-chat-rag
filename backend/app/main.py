@@ -41,6 +41,18 @@ async def request_id(request: Request, call_next):
     return response
 
 
+@app.middleware("http")
+async def limit_upload(request: Request, call_next):
+    """Refuse oversized uploads from the header, before the framework buffers the body."""
+    if request.method == "POST" and request.url.path == "/api/v1/documents":
+        length = request.headers.get("content-length")
+        if not length or not length.isdigit():
+            return JSONResponse(dict(code="length_required", message="Content-Length is required"), 411)
+        if int(length) > cfg.max_upload_bytes + 1_048_576:  # + multipart overhead
+            return JSONResponse(dict(code="too_large", message="File empty or exceeds 10 MiB"), 413)
+    return await call_next(request)
+
+
 # Every error is {code, message, request_id}.
 def _error(request, status, code, message, request_id=None):
     request_id = request_id or getattr(request.state, "request_id", None)

@@ -37,12 +37,8 @@ export default function SettingsPage({ prefs, change }: { prefs: Prefs; change: 
       .catch(() => setCatalog([]));
   }, []);
   const picked = prefs.models;
-  const flip = (id: string, on: boolean) => {
-    const base = picked.length ? picked : (catalog ?? []).map((m) => m.id);
-    const next = on ? [...new Set([...base, id])] : base.filter((x) => x !== id);
-    // Everything ticked is stored as an empty list, which means "show all".
-    void change({ models: next.length === (catalog ?? []).length ? [] : next });
-  };
+  const flip = (id: string, on: boolean) => void change({ models: on ? [...new Set([...picked, id])] : picked.filter((x) => x !== id) });
+  const setAll = (on: boolean) => void change({ models: on ? (catalog ?? []).map((m) => m.id) : [] });
   const toggle = (key: keyof Prefs["notifications"], label: string, hint: string, off = false) => (
     <label className="switch-row">
       <span>
@@ -123,21 +119,41 @@ export default function SettingsPage({ prefs, change }: { prefs: Prefs; change: 
         {tab === "Models" && (
           <section>
             <h2>Model shortlist</h2>
-            <p className="note">Choose the models that appear in the chat picker. Select none to show all.</p>
+            <p className="note">Choose the models that appear in the chat picker.</p>
+            {catalog !== null && (
+              <div className="model-bar">
+                <span className="model-count">
+                  {picked.filter((id) => catalog.some((m) => m.id === id)).length} of {catalog.length} selected
+                </span>
+                <div className="model-bulk" role="group" aria-label="Select models">
+                  <button onClick={() => setAll(true)} disabled={!catalog.length}>Select all</button>
+                  <button onClick={() => setAll(false)} disabled={!picked.length}>Deselect all</button>
+                </div>
+              </div>
+            )}
             {catalog === null && <p className="state" role="status">Loading models…</p>}
-            {[...new Set((catalog ?? []).map((m) => m.provider))].map((p) => (
-              <fieldset className="model-group" key={p}>
-                <legend>{p === "openai" ? "OpenAI" : p === "gemini" ? "Gemini" : p}</legend>
-                {(catalog ?? [])
-                  .filter((m) => m.provider === p)
-                  .map((m) => (
-                    <label className="switch-row" key={m.id}>
-                      <span>{m.label}</span>
-                      <input type="checkbox" role="switch" checked={!picked.length || picked.includes(m.id)} onChange={(e) => flip(m.id, e.target.checked)} />
-                    </label>
-                  ))}
-              </fieldset>
-            ))}
+            {catalog !== null && !picked.length && <p className="note">No models selected. The chat picker is empty until you select one.</p>}
+            <div className="model-columns">
+              {[["openai", "OpenAI"], ["gemini", "Gemini"]].map(([p, name]) => {
+                const rows = (catalog ?? []).filter((m) => m.provider === p);
+                return (
+                  <fieldset className="model-group" key={p}>
+                    <legend>
+                      {name} <span>{rows.filter((m) => picked.includes(m.id)).length}/{rows.length}</span>
+                    </legend>
+                    <div className="model-list">
+                      {rows.map((m) => (
+                        <label className="switch-row" key={m.id}>
+                          <span>{m.label}</span>
+                          <input type="checkbox" role="switch" checked={picked.includes(m.id)} onChange={(e) => flip(m.id, e.target.checked)} />
+                        </label>
+                      ))}
+                      {catalog !== null && !rows.length && <p className="note">No models. Add a {name} key.</p>}
+                    </div>
+                  </fieldset>
+                );
+              })}
+            </div>
           </section>
         )}
         {tab === "Personalization" && (

@@ -6,6 +6,9 @@ from pydantic import Field
 
 from app.schemas.common import Strict, Text
 
+# Models in the picker until the user changes the selection (keep in sync with frontend/src/prefs.ts).
+DEFAULT_MODELS = ("gpt-4o", "gpt-4.1", "gpt-4.1-mini", "gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.6-flash")
+
 ResponseStyle = Literal["default", "friendly", "candid", "efficient", "professional", "analytical"]
 ColorTheme = Literal["default", "github", "claude", "gemini", "monokai"]
 Mode = Literal["light", "dark", "system"]
@@ -40,7 +43,7 @@ class Preferences(Strict):
     font_size: FontSize = "medium"
     response_style: ResponseStyle = "default"
     notifications: Notifications = Notifications()
-    models: list[str] = []  # shortlist shown in the model picker; empty means all
+    models: list[str] = Field(default_factory=lambda: list(DEFAULT_MODELS))  # models in the picker; empty means none
 
 
 class NotificationsUpdate(Strict):

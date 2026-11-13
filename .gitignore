@@ -42,3 +42,4 @@ playwright-report/
 Thumbs.db
 desktop.ini
 .DS_Store
+anti-slop/

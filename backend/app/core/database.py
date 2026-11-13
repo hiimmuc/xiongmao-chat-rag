@@ -14,7 +14,14 @@ class Base(DeclarativeBase):
     pass
 
 
-engine = create_engine(settings().database_url, pool_pre_ping=True, pool_size=5, max_overflow=5)
+# Sessions run in UTC, so timestamps read back look the same on every machine, whatever its time zone.
+engine = create_engine(
+    settings().database_url,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=5,
+    connect_args={"options": "-ctimezone=UTC"},
+)
 Session = sessionmaker(engine, expire_on_commit=False)
 
 

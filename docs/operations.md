@@ -1,6 +1,6 @@
 # Operating production (AWS)
 
-Commands are for PowerShell on Windows, run from `infra\` unless noted, with the AWS CLI configured and `$env:AWS_REGION` set. For the staging VM, see [staging-gcp.md](staging-gcp.md#operating-it).
+Each command is given for Linux, macOS (bash or zsh), WSL and Git Bash, and for Windows PowerShell. Run them from `infra/` unless noted, with the AWS CLI configured and the region set (`export AWS_REGION=us-east-1`, or `$env:AWS_REGION = "us-east-1"` in PowerShell). For the staging VM, see [staging-gcp.md](staging-gcp.md#operating-it).
 
 | I want to | Go to |
 | --- | --- |
@@ -16,6 +16,14 @@ Commands are for PowerShell on Windows, run from `infra\` unless noted, with the
 
 There is no SSH. Session Manager opens a shell through IAM:
 
+**Linux, macOS (bash or zsh), WSL, Git Bash:**
+
+```bash
+aws ssm start-session --target "$(terraform output -raw server_instance_id)"
+```
+
+**Windows PowerShell:**
+
 ```powershell
 aws ssm start-session --target (terraform output -raw server_instance_id)
 ```
@@ -30,7 +38,7 @@ docker compose logs -f api        # follow API logs (also: worker, caddy, db, mi
 docker compose restart api
 ```
 
-**Health check from anywhere:** `curl.exe https://api.xiong-mao.net/api/v1/health/ready` returns `{"status":"ok"}` when the API can reach the database.
+**Health check from anywhere:** `curl https://api.xiong-mao.net/api/v1/health/ready` returns `{"status":"ok"}` when the API can reach the database.
 
 ## Deploy
 
@@ -76,7 +84,9 @@ flowchart LR
 2. In the EC2 console, create a volume from the snapshot in the same Availability Zone as the server.
 3. Point Terraform at the new volume:
 
-   ```powershell
+   **Linux, macOS (bash or zsh), WSL, Git Bash, or Windows PowerShell** (the commands are identical):
+
+   ```bash
    terraform state rm aws_ebs_volume.data aws_volume_attachment.data
    terraform import aws_ebs_volume.data <new-volume-id>
    terraform apply     # replaces the server, which then mounts the restored volume
@@ -87,6 +97,16 @@ flowchart LR
 5. Once everything works, delete the old volume yourself.
 
 ## Replace or resize the server
+
+**Linux, macOS (bash or zsh), WSL, Git Bash:**
+
+```bash
+terraform apply -replace="aws_instance.server"          # fresh Ubuntu, same data disk and IP
+# or set instance_type = "t4g.small" in terraform.tfvars, then: terraform apply
+gh workflow run deploy.yml                               # start the app on the new server
+```
+
+**Windows PowerShell:**
 
 ```powershell
 terraform apply -replace="aws_instance.server"          # fresh Ubuntu, same data disk and IP

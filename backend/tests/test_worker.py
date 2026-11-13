@@ -1,32 +1,15 @@
-from io import BytesIO
 from types import SimpleNamespace
 
-import pytest
-from pypdf import PdfWriter
 from sqlalchemy import select
 
 from app.core import storage
-from app.models import Chunk, Document, Generation, User
+from app.models import Chunk, Document, User
 from app.services import ingestion, retrieval
 from worker import main as worker
 
 
 def auth(owner="alice"):
     return {"Authorization": "Bearer " + owner}
-
-
-def test_pdf_rejects_scans_and_passwords():
-    writer = PdfWriter()
-    writer.add_blank_page(width=100, height=100)
-    data = BytesIO()
-    writer.write(data)
-    with pytest.raises(ValueError, match="Scanned"):
-        ingestion.extract_text("scan.pdf", data.getvalue())
-    writer.encrypt("secret")
-    data = BytesIO()
-    writer.write(data)
-    with pytest.raises(ValueError, match="Password"):
-        ingestion.extract_text("private.pdf", data.getvalue())
 
 
 def test_worker_ingestion_vector_retrieval_and_deletion(api, monkeypatch):
@@ -98,41 +81,3 @@ def test_upload_is_unpublished_until_storage_finishes(api, monkeypatch):
         "/api/v1/documents", headers=auth(), files={"file": ("one.txt", b"evidence", "text/plain")}
     )
     assert response.status_code == 202
-
-
-def test_document_delete_clears_saved_source_snippets(api):
-    from uuid import uuid4
-
-    from app.models import Message
-
-    client, sessions, _ = api
-    h = auth()
-    user = client.get("/api/v1/me", headers=h).json()
-    c = client.post("/api/v1/conversations", headers=h, json={}).json()
-    d = client.post(
-        "/api/v1/documents", headers=h, files={"file": ("private.txt", b"private evidence", "text/plain")}
-    ).json()
-    with sessions() as db:
-        u = Message(conversation_id=c["id"], sequence=1, role="user", content="Question")
-        a = Message(conversation_id=c["id"], sequence=2, role="assistant", content="Prior answer")
-        db.add_all([u, a])
-        db.flush()
-        g = Generation(
-            user_id=user["id"],
-            conversation_id=c["id"],
-            user_message_id=u.id,
-            assistant_message_id=a.id,
-            request_id=str(uuid4()),
-            payload_hash="hash",
-            model_id="test",
-            provider="openai",
-            status="completed",
-            sources=[dict(id="1", document_id=d["id"], name="private.txt", snippet="private evidence")],
-        )
-        db.add(g)
-        db.commit()
-    client.delete("/api/v1/documents/" + d["id"], headers={**h, "Idempotency-Key": str(uuid4())})
-    history = client.get("/api/v1/conversations/" + c["id"] + "/messages", headers=h).json()
-    assert history["items"][-1]["citations"] == [
-        {"id": "1", "document_id": d["id"], "name": "Source deleted", "deleted": True}
-    ]

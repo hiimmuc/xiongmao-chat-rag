@@ -59,7 +59,9 @@ export default function ChatPage({ slot, active: visible, projectId, freeId, fre
 
   const documents = useChatDocuments({ free, freeId, projectId, chat, setChat, ensureChat: create, visible, onError: setError });
   const drop = useFileDrop((files) => void documents.upload(files), !busy);
-  const shown = shortlist.length ? models.filter((m) => shortlist.includes(m.id) || m.id === model) : models;
+  // A selection that matches nothing the catalog offers (default models without a key) shows every model.
+  const overlap = models.some((m) => shortlist.includes(m.id));
+  const shown = shortlist.length && !overlap ? models : models.filter((m) => shortlist.includes(m.id) || m.id === model);
   const modelLabel = (id?: string) => models.find((m) => m.id === id)?.label || id || "Model";
   const latestAnswer = [...messages].reverse().find((m) => m.role === "assistant");
 
@@ -261,7 +263,7 @@ export default function ChatPage({ slot, active: visible, projectId, freeId, fre
 
   useEffect(() => {
     if (models.length && !models.some((m) => m.id === model)) {
-      setModel((shortlist.length ? models.find((m) => shortlist.includes(m.id)) : undefined)?.id ?? models[0].id);
+      setModel(models.find((m) => shortlist.includes(m.id))?.id ?? models[0].id);
     }
   }, [models, shortlist]);
 

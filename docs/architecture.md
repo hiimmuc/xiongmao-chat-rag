@@ -155,6 +155,6 @@ A 1-year no-upfront Compute Savings Plan for the instance brings this to about $
 
 ## Known limits
 
-- **Single server:** a reboot or failure means downtime until it is back, usually about a minute ([operations](operations.md)).
-- **One worker:** a job that is mid-way when the worker crashes stays in `processing` until an operator steps in. Paid calls are never replayed automatically.
-- **Snapshots include the deletion journal:** restoring an older snapshot also brings back data deleted after it was taken. Repeat those deletions after a restore.
+- Single server: a reboot or failure means downtime until it is back, usually about a minute ([operations](operations.md)).
+- One worker: a job that is mid-way when the worker crashes stays in `processing` until an operator steps in. Paid calls are never replayed automatically.
+- Snapshots include the deletion journal: restoring an older snapshot also brings back data deleted after it was taken. Repeat those deletions after a restore.

@@ -1,6 +1,6 @@
 # Cost: how production runs for about $10 a month, and how it grows
 
-Production costs **about $12 a month on-demand, or about $10 with a 1-year Savings Plan**. Almost all of it is the one EC2 server that runs the backend and the database. The frontend is almost free. This page shows where the money goes, which choices keep it low, and how the setup would change with a bigger budget or much more traffic.
+Production costs **about $12 a month on-demand, or about $10 with a 1-year Savings Plan**. Almost all of it is the one EC2 server that runs the backend and the database. The frontend is almost free.
 
 Prices are AWS us-east-1 list prices at the time of writing, for a month of 730 hours. Check the [AWS Pricing Calculator](https://calculator.aws/) before you decide anything. AI provider charges (Gemini) are billed by Google and are not included.
 
