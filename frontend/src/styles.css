@@ -1940,4 +1940,27 @@ p.brand {
 }
 .chip.working small {
   color: var(--text-2);
+
+
+.side-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.collapse-btn {
+  flex: none;
+}
+@media (min-width: 861px) {
+  .shell[data-collapsed="true"] {
+    grid-template-columns: 0 minmax(0, 1fr);
+  }
+  .shell[data-collapsed="true"] .sidebar {
+    visibility: hidden;
+    overflow: hidden;
+    padding: 0;
+    border: 0;
+  }
+  .shell[data-collapsed="true"] .topbar {
+    display: flex;
+  }
 }

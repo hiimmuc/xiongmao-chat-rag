@@ -11,6 +11,7 @@ export const PATH = {
   chevron: "M6 9l6 6 6-6",
   down: "M12 5v14M5 12l7 7 7-7",
   open: "M5 12h14M13 6l6 6-6 6",
+  panel: "M4 5h16v14H4zM9 5v14",
   plus: "M12 5v14M5 12h14",
   search: "M11 4a7 7 0 100 14 7 7 0 000-14zM21 21l-4.3-4.3",
   more: "M12 5a1 1 0 100 2 1 1 0 000-2zM12 11a1 1 0 100 2 1 1 0 000-2zM12 17a1 1 0 100 2 1 1 0 000-2z",

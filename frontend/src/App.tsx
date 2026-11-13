@@ -18,12 +18,14 @@ const NAV = [
   ["settings", "Settings", PATH.gear],
 ] as const;
 const route = () => location.pathname.slice(1) || "chat";
+const narrow = () => matchMedia("(max-width: 860px)").matches;
 type Toast = { id: number; text: string };
 /** Auth gate and application shell: workspace switcher, preferences, toasts and routing. */
 export default function App() {
   const [user, setUser] = useState<Account | null>(),
     [page, setPage] = useState(route()),
     [navOpen, setNavOpen] = useState(false),
+    [collapsed, setCollapsed] = useState(localStorage.getItem("sidebar") === "collapsed"),
     [slot, setSlot] = useState<HTMLElement | null>(null),
     [projects, setProjects] = useState<Project[]>([]),
     [freeId, setFreeId] = useState(""),
@@ -74,6 +76,10 @@ export default function App() {
       toast("Could not save settings: " + (e as Error).message);
     }
   }
+  const collapse = (on: boolean) => {
+    setCollapsed(on);
+    localStorage.setItem("sidebar", on ? "collapsed" : "open");
+  };
   const newChat = () => {
     setFresh((n) => n + 1);
     go("chat");
@@ -163,12 +169,17 @@ export default function App() {
   const known = NAV.some(([p]) => p === page);
   const active = projects.find((p) => p.id === projectId);
   return (
-    <div className="shell" data-nav={navOpen ? "open" : "closed"}>
+    <div className="shell" data-nav={navOpen ? "open" : "closed"} data-collapsed={collapsed}>
       <aside className="sidebar" id="sidebar" aria-label="Sidebar">
-        <button className="brand-btn" onClick={newChat} aria-label="Gehihi, start a new chat">
-          <Panda size={34} mood={mood} />
-          <span className="brand">Gehihi</span>
-        </button>
+        <div className="side-head">
+          <button className="brand-btn" onClick={newChat} aria-label="Gehihi, start a new chat">
+            <Panda size={34} mood={mood} />
+            <span className="brand">Gehihi</span>
+          </button>
+          <button className="icon-btn collapse-btn" aria-label="Collapse sidebar" title="Collapse sidebar" onClick={() => (narrow() ? setNavOpen(false) : collapse(true))}>
+            <Icon d={PATH.panel} />
+          </button>
+        </div>
         <div className="switcher">
           <button
             className="project-btn"
@@ -219,7 +230,7 @@ export default function App() {
       <div className="scrim" onClick={() => setNavOpen(false)} />
       <div className="content">
         <div className="topbar">
-          <button className="ghost menu-btn" aria-label="Open sidebar" aria-controls="sidebar" aria-expanded={navOpen} onClick={() => setNavOpen(true)}>
+          <button className="ghost menu-btn" aria-label="Open sidebar" aria-controls="sidebar" aria-expanded={collapsed ? false : navOpen} onClick={() => (narrow() ? setNavOpen(true) : collapse(false))}>
             <Icon d="M4 7h16M4 12h16M4 17h16" />
           </button>
           <button className="brand-btn" onClick={newChat} aria-label="Gehihi, start a new chat">
