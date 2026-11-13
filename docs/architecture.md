@@ -137,7 +137,7 @@ The first-boot script (`infra/user_data.sh.tftpl`) installs Docker, adds 2 GiB s
 | S3, ECR (5 images), CloudFront, SSM, DLM | ~0.20 (mostly free tier) |
 | **Total** | **~$12** |
 
-A 1-year no-upfront Compute Savings Plan for the instance brings this to about $10. Gemini usage is billed separately by Google. Burst CPU credits are set to `standard`, so the instance can never run up surprise CPU charges.
+A 1-year no-upfront Compute Savings Plan for the instance brings this to about $10. Gemini usage is billed separately by Google. Burst CPU credits are set to `standard`, so the instance can never run up surprise CPU charges. The full breakdown, and how the setup changes with a bigger budget or more traffic, is in [cost.md](cost.md).
 
 ## Why this shape
 

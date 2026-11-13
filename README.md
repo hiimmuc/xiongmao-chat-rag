@@ -50,6 +50,7 @@ Every environment runs the same API image and the same `deploy/compose.yaml`. On
 | Read this | When you want to |
 | --- | --- |
 | [docs/architecture.md](docs/architecture.md) | Understand production: request paths, the server, security, costs and why it is built this way |
+| [docs/cost.md](docs/cost.md) | See how production runs for about $10 a month, and how the setup grows with budget and traffic |
 | [docs/deploy-aws.md](docs/deploy-aws.md) | Set up production on AWS from scratch, or understand how a deploy works |
 | [docs/staging-gcp.md](docs/staging-gcp.md) | Set up or run the staging VM on GCP |
 | [docs/operations.md](docs/operations.md) | Run production: shell access, rollback, backups, restore, resize, tear down |
