@@ -1576,16 +1576,6 @@ p.brand {
   opacity: 0;
   cursor: pointer;
 }
-.model-group {
-  border: 0;
-  padding: 0;
-  margin: 0 0 1rem;
-}
-.model-group legend {
-  font-size: 0.85rem;
-  color: var(--text-2);
-  padding: 0;
-}
 .topbar .brand-btn {
   width: auto;
 }
@@ -1940,7 +1930,7 @@ p.brand {
 }
 .chip.working small {
   color: var(--text-2);
-
+}
 
 .side-head {
   display: flex;
@@ -1965,15 +1955,67 @@ p.brand {
   }
 }
 
-.model-actions {
+.model-bar {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+}
+.model-count {
+  color: var(--text-2);
+  font-size: 0.9rem;
+}
+.model-bulk {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.model-bulk button {
+  min-height: 36px;
+  padding: 0.3rem 0.9rem;
+  border: 0;
+  border-radius: 0;
+  font-size: 0.9rem;
+}
+.model-bulk button + button {
+  border-left: 1px solid var(--border);
 }
 .model-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.5rem;
+  gap: 1rem;
+  align-items: start;
+}
+.model-group {
+  min-width: 0;
+  margin: 0;
+  padding: 0 0.9rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.model-group legend {
+  padding: 0 0.4rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.model-group legend span {
+  margin-left: 0.3rem;
+  color: var(--text-2);
+  font-weight: 400;
+}
+.model-list {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.model-list .switch-row {
+  min-height: 40px;
+  padding: 0.35rem 0;
+  font-size: 0.92rem;
+}
+.model-list .switch-row + .switch-row {
+  border-top: 1px solid var(--border);
 }
 @media (max-width: 640px) {
   .model-columns {
