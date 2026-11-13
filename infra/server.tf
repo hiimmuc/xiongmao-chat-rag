@@ -94,10 +94,10 @@ resource "aws_instance" "server" {
   credit_specification {
     cpu_credits = "standard" # never bill for extra CPU credits
   }
+  # 1 hop: only the host (deploy.sh, the AWS CLI) can use the instance role. The containers never
+  # call AWS, so a compromised container cannot read the secrets in Parameter Store.
   metadata_options {
     http_tokens                 = "required"
-    # 1 hop: only the host (deploy.sh, the AWS CLI) can use the instance role. The containers never
-    # call AWS, so a compromised container cannot read the secrets in Parameter Store.
     http_put_response_hop_limit = 1
   }
   root_block_device {
