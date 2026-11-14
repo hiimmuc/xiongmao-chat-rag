@@ -41,6 +41,7 @@ export default function MessageItem({ message: m, label, isLatestAnswer, busy, c
       <div className="bubble">
         {!m.content && m.status === "streaming" && <Thinking />}
         <Markdown
+          disallowedElements={["img"]} // no remote images: a rendered URL would leak data when the browser loads it
           components={{
             a: ({ children, ...props }) => (
               <a {...props} target="_blank" rel="noopener noreferrer">

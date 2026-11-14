@@ -15,7 +15,13 @@ from app.models import Conversation, Document, Generation, Message, Usage, User,
 from app.services import usage
 from app.services.api_keys import api_key_for
 from app.services.preferences import STYLES, preferences_for
-from app.services.prompts import build_system, completed_history, fit_history
+from app.services.prompts import (
+    build_system,
+    completed_history,
+    drop_unknown_citations,
+    fit_history,
+    question_message,
+)
 from app.services.providers import ProviderError, stream_text
 from app.services.retrieval import retrieval_query, retrieve
 
@@ -171,8 +177,10 @@ async def produce(id, model, queue):
                 api_key = api_key_for(db, g.user_id, g.provider)
                 db.commit()
             await queue.put(event("sources", {"sources": sources}))
-            system = build_system(style, sources, bool(g.document_versions), model)
-            messages = fit_history(history, system, question, model) + [dict(role="user", content=question)]
+            grounded = bool(g.document_versions)
+            system = build_system(style, grounded, model)
+            final = question_message(question, sources, grounded)
+            messages = fit_history(history, system, final, model) + [dict(role="user", content=final)]
             invocation = usage.intent(
                 g.user_id,
                 g.model_id,
@@ -198,7 +206,7 @@ async def produce(id, model, queue):
             if not content:
                 raise ProviderError("Provider returned no answer")
             usage.finalize(invocation, metadata, "succeeded")
-            persist(id, content, "completed", guard=True)
+            persist(id, drop_unknown_citations(content, sources), "completed", guard=True)
             with database.Session() as db:
                 row = db.get(Usage, invocation)
                 counted = usage.brief(row) if row else None
