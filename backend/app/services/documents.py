@@ -13,6 +13,7 @@ from app.core import storage
 from app.core.config import settings
 from app.models import Document, Job, User, uid
 from app.services.conversations import owned_conversation
+from app.services.ingestion import isolated_parse
 from app.services.projects import resolve_project
 
 TYPES = {".pdf": "application/pdf", ".txt": "text/plain", ".md": "text/markdown"}
@@ -51,9 +52,16 @@ def check_file(filename, data):
         raise HTTPException(422, "Use text PDF, TXT or Markdown")
     if not data or len(data) > settings().max_upload_bytes:
         raise HTTPException(413, "File empty or exceeds 10 MiB")
-    if suffix == ".pdf" and not data.startswith(b"%PDF-"):
-        raise HTTPException(422, "Invalid PDF")
-    if suffix != ".pdf":
+    if suffix == ".pdf":
+        if not data.startswith(b"%PDF-"):
+            raise HTTPException(422, "Invalid PDF")
+        try:
+            isolated_parse(name, data)  # same check as ingestion: text on every page, no password
+        except ValueError:
+            raise HTTPException(
+                422, "PDF must be text-based: scanned, encrypted or unreadable files are not supported"
+            ) from None
+    else:
         try:
             text = data.decode("utf-8")
             if "\x00" in text or not text.strip():

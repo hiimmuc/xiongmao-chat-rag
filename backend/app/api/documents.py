@@ -33,15 +33,16 @@ def document_json(d):
 
 
 @router.post("/documents", status_code=202)
-async def upload_document(
+def upload_document(
     file: UploadFile,
     project_id: UUID | None = None,
     conversation_id: UUID | None = None,
     user=Depends(current_user),
     db=Depends(get_db),
 ):
-    data = await file.read(settings().max_upload_bytes + 1)  # one extra byte detects oversize files
-    await file.close()
+    # Sync on purpose: the PDF check runs in a child process, so FastAPI runs this in its thread pool.
+    data = file.file.read(settings().max_upload_bytes + 1)  # one extra byte detects oversize files
+    file.file.close()
     return document_json(documents.upload(db, user, file.filename, data, project_id, conversation_id))
 
 

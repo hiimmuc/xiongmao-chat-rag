@@ -58,7 +58,7 @@ export default function ChatPage({ slot, active: visible, projectId, freeId, fre
   const selected = useRef<string>(undefined);
 
   const documents = useChatDocuments({ free, freeId, projectId, chat, setChat, ensureChat: create, visible, onError: setError });
-  const drop = useFileDrop((files) => void documents.upload(files), !busy);
+  const drop = useFileDrop((files) => void documents.upload(files)); // uploads also work while an answer streams
   // A selection that matches nothing the catalog offers (default models without a key) shows every model.
   const overlap = models.some((m) => shortlist.includes(m.id));
   const shown = shortlist.length && !overlap ? models : models.filter((m) => shortlist.includes(m.id) || m.id === model);

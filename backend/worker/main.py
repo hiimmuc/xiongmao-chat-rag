@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-import multiprocessing
 import signal
 import time
 from datetime import timedelta
@@ -13,49 +12,10 @@ from app.core import database, storage
 from app.models import Chunk, Deletion, Document, Job, User, now
 from app.services.deletion_rules import RESOURCES
 from app.services.deletions import apply_intent
-from app.services.ingestion import chunk_text, extract_text
+from app.services.ingestion import chunk_text, isolated_parse
 from app.services.providers import ProviderError, embed
 
 stopping = False
-
-
-def parse_child(conn, name, data):
-    try:
-        try:
-            import resource  # Linux only; on Windows the 25-second timeout below still applies
-
-            resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024,) * 2)
-            resource.setrlimit(resource.RLIMIT_CPU, (15, 15))
-        except ImportError:
-            pass
-        pages = extract_text(name, data)
-        if sum(len(text) for _, text in pages) > 2_000_000:
-            raise ValueError("Extracted document is too large")
-        conn.send((True, pages))
-    except Exception:
-        conn.send((False, "invalid_document"))
-    finally:
-        conn.close()
-
-
-def isolated_parse(name, data):
-    ctx = multiprocessing.get_context("spawn")
-    parent, child = ctx.Pipe(False)
-    process = ctx.Process(target=parse_child, args=(child, name, data))
-    process.start()
-    child.close()
-    try:
-        if not parent.poll(25):
-            raise ValueError("document_parse_timeout")
-        ok, result = parent.recv()
-        if not ok:
-            raise ValueError(result)
-        return result
-    finally:
-        if process.is_alive():
-            process.terminate()
-        process.join(5)
-        parent.close()
 
 
 async def ingest(id):

@@ -33,6 +33,25 @@ def test_projects_are_private_and_deleting_the_last_is_refused(api):
     )
 
 
+def test_pdf_without_selectable_text_is_refused_at_upload(api):
+    from io import BytesIO
+
+    from pypdf import PdfWriter
+
+    client, _, _ = api
+    writer = PdfWriter()
+    writer.add_blank_page(width=72, height=72)  # no text layer, like a scan
+    buf = BytesIO()
+    writer.write(buf)
+    pid = client.get("/api/v1/projects", headers=A).json()["items"][0]["id"]
+    r = client.post(
+        f"/api/v1/documents?project_id={pid}",
+        headers=A,
+        files={"file": ("scan.pdf", buf.getvalue(), "application/pdf")},
+    )
+    assert r.status_code == 422 and "text-based" in r.json()["message"]
+
+
 def test_documents_and_chats_do_not_cross_projects(api, monkeypatch):
     client, sessions, _ = api
 

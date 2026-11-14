@@ -1,5 +1,6 @@
-"""Turn an uploaded file into text pieces ready for embedding (used by the worker)."""
+"""Turn an uploaded file into text pieces ready for embedding (used by the API and the worker)."""
 
+import multiprocessing
 from io import BytesIO
 from pathlib import Path
 
@@ -31,6 +32,46 @@ def extract_text(name, data):
     if any(not text.strip() for _, text in pages):
         raise ValueError("Scanned or image-only PDF pages are unsupported; OCR is not enabled")
     return pages
+
+
+def parse_child(conn, name, data):
+    try:
+        try:
+            import resource  # Linux only; on Windows the 25-second timeout below still applies
+
+            resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024,) * 2)
+            resource.setrlimit(resource.RLIMIT_CPU, (15, 15))
+        except ImportError:
+            pass
+        pages = extract_text(name, data)
+        if sum(len(text) for _, text in pages) > 2_000_000:
+            raise ValueError("Extracted document is too large")
+        conn.send((True, pages))
+    except Exception:
+        conn.send((False, "invalid_document"))
+    finally:
+        conn.close()
+
+
+def isolated_parse(name, data):
+    """extract_text in a child process, so hostile PDFs cannot hang or exhaust the caller."""
+    ctx = multiprocessing.get_context("spawn")
+    parent, child = ctx.Pipe(False)
+    process = ctx.Process(target=parse_child, args=(child, name, data))
+    process.start()
+    child.close()
+    try:
+        if not parent.poll(25):
+            raise ValueError("document_parse_timeout")
+        ok, result = parent.recv()
+        if not ok:
+            raise ValueError(result)
+        return result
+    finally:
+        if process.is_alive():
+            process.terminate()
+        process.join(5)
+        parent.close()
 
 
 def chunk_text(text, size=800, overlap=100):
